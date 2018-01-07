@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    >
+
+    <FrameLayout
+        android:id="@+id/fragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        />
+
+    <yeungkc.rxbarcodescanner.view.ScanBoxView
+        android:id="@+id/scan_box_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:topOffset="90dp"
+        app:animTime="1000"
+        app:borderSize="0dp"
+        app:cornerLength="29dp"
+        app:cornerSize="3dp"
+        app:cornerColor="#fff"
+        app:maskColor="#7f000000"
+        app:rectWidth="256dp"
+        app:scanLineMargin="0dp"
+        app:scanLineSize="1dp"
+        app:scanLineColor="#66ffffff"
+        />
+
+    <Button
+        android:id="@+id/button_torch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        />
+</FrameLayout>
