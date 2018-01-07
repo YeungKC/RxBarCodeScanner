@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -40,8 +39,11 @@ import io.reactivex.subjects.Subject;
 
 public class RxBarCodeScannerFragment extends Fragment {
 
+    private static final RxBarCodeScannerLogger LOG = RxBarCodeScannerLogger.create(Decode.class.getSimpleName());
+
     private static final String KEY_DECODE_FORMATS = "KEY_DECODE_FORMATS";
     private static final int POST_FOCUS_DELAY = 500;
+
     private CameraView mCameraView;
     private FrameProcessor mFrameProcessor;
     private Flowable<Pair<Result, ReaderException>> mResultFlowable;
@@ -93,7 +95,7 @@ public class RxBarCodeScannerFragment extends Fragment {
                 .map(new Function<Frame, Pair<Result, ReaderException>>() {
                     @Override
                     public Pair<Result, ReaderException> apply(Frame frame) throws Exception {
-                        Log.i("rotation", frame.getRotation() + " : " + frame.getSize());
+                        LOG.i("rotation", frame.getRotation() + " : " + frame.getSize());
                         return decode.decode(frame.getData(), frame.getSize().getWidth(), frame.getSize().getHeight(), frame.getRotation());
                     }
                 });

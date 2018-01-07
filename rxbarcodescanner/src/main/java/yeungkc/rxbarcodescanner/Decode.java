@@ -19,6 +19,8 @@ import java.util.EnumMap;
 
 public class Decode {
 
+    private static final RxBarCodeScannerLogger LOG = RxBarCodeScannerLogger.create(Decode.class.getSimpleName());
+
     private static boolean sIsUseHybridBinarizer;
 
     private final MultiFormatReader mReader;
@@ -90,7 +92,7 @@ public class Decode {
             return Pair.create(null, e);
         } finally {
             mReader.reset();
-            Log.i(getClass().getSimpleName(), (System.currentTimeMillis() - start) + "");
+            LOG.i(getClass().getSimpleName(), (System.currentTimeMillis() - start) + "");
         }
     }
 }
