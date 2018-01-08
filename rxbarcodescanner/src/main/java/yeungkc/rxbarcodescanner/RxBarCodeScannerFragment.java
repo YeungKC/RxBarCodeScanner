@@ -2,6 +2,7 @@ package yeungkc.rxbarcodescanner;
 
 import android.content.pm.PackageManager;
 import android.graphics.PointF;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -47,7 +48,7 @@ public class RxBarCodeScannerFragment extends Fragment {
     private CameraView mCameraView;
     private FrameProcessor mFrameProcessor;
     private Flowable<Pair<Result, ReaderException>> mResultFlowable;
-    private OnCodeScannerListener mOnCodeScannerListener;
+    private OnRxBarCodeScannerListener mOnRxBarCodeScannerListener;
     private Subject<Object> mFocusSubject = PublishSubject.<Object>create();
     private Disposable mFocusDisposable;
     private int mPostFocusDelay;
@@ -93,15 +94,33 @@ public class RxBarCodeScannerFragment extends Fragment {
             }
         }, BackpressureStrategy.DROP)
                 .map(new Function<Frame, Pair<Result, ReaderException>>() {
+
+                    private Rect mCropRect;
+
                     @Override
                     public Pair<Result, ReaderException> apply(Frame frame) throws Exception {
-                        LOG.i("rotation", frame.getRotation() + " : " + frame.getSize());
-                        return decode.decode(frame.getData(), frame.getSize().getWidth(), frame.getSize().getHeight(), frame.getRotation());
+                        mCropRect = null;
+                        Size size = frame.getSize();
+                        int rotation = frame.getRotation();
+
+                        if (mOnRxBarCodeScannerListener != null && mCropRect == null) {
+                            int width = rotation % 180 != 0 ? size.getHeight() : size.getWidth();
+                            int height = rotation % 180 != 0 ? size.getWidth() : size.getHeight();
+                            mCropRect = mOnRxBarCodeScannerListener.onGetScanBoxAreaRect(width, height);
+                        }
+                        LOG.i("rotation", rotation + " : " + size);
+                        return decode.decode(
+                                frame.getData(),
+                                size.getWidth(), size.getHeight(),
+                                frame.getFormat(),
+                                rotation,
+                                mCropRect
+                        );
                     }
                 });
 
-        if (mOnCodeScannerListener != null) {
-            mOnCodeScannerListener.onResultFlowableReady(mResultFlowable);
+        if (mOnRxBarCodeScannerListener != null) {
+            mOnRxBarCodeScannerListener.onResultFlowableReady(mResultFlowable);
         }
 
         mAmbientLightManager = new AmbientLightManager(getContext());
@@ -123,17 +142,19 @@ public class RxBarCodeScannerFragment extends Fragment {
             @Override
             public void onCameraOpened(CameraOptions options) {
                 super.onCameraOpened(options);
-                if (mOnCodeScannerListener != null) {
-                    mOnCodeScannerListener.onCameraOpened();
-                    mOnCodeScannerListener.onOpenTorch(getTorch());
+                if (mOnRxBarCodeScannerListener != null) {
+                    mOnRxBarCodeScannerListener.onCameraOpened();
+                    mOnRxBarCodeScannerListener.onOpenTorch(getTorch());
                 }
-                if (mFocusSubject != null && mIsContinuousFocus) mFocusSubject.onNext(FocusNotification.INSTANCE);
+                if (mFocusSubject != null && mIsContinuousFocus)
+                    mFocusSubject.onNext(FocusNotification.INSTANCE);
             }
 
             @Override
             public void onFocusEnd(boolean successful, PointF point) {
                 super.onFocusEnd(successful, point);
-                if (mFocusSubject != null && mIsContinuousFocus) mFocusSubject.onNext(FocusNotification.INSTANCE);
+                if (mFocusSubject != null && mIsContinuousFocus)
+                    mFocusSubject.onNext(FocusNotification.INSTANCE);
             }
         });
 
@@ -144,7 +165,7 @@ public class RxBarCodeScannerFragment extends Fragment {
                 .subscribe(new Consumer<Object>() {
                     @Override
                     public void accept(Object o) throws Exception {
-                        if (mFocusX != null && mFocusY != null) {
+                        if (mFocusX != null && mFocusX > 0 && mFocusY != null && mFocusY > 0) {
                             startAutoFocus(mFocusX, mFocusY);
                             return;
                         }
@@ -161,7 +182,8 @@ public class RxBarCodeScannerFragment extends Fragment {
         mAmbientLightManager.start(new AmbientLightManager.AmbientLightListener() {
             @Override
             public void needOpenTorch(boolean needOpenTorch) {
-                if (mOnCodeScannerListener != null) mOnCodeScannerListener.needOpenTorch(needOpenTorch);
+                if (mOnRxBarCodeScannerListener != null)
+                    mOnRxBarCodeScannerListener.needOpenTorch(needOpenTorch);
             }
         });
         mCameraView.start();
@@ -201,35 +223,39 @@ public class RxBarCodeScannerFragment extends Fragment {
         return mResultFlowable;
     }
 
-    public void setOnCodeScannerListener(OnCodeScannerListener onCodeScannerListener) {
-        mOnCodeScannerListener = onCodeScannerListener;
+    public void setOnRxBarCodeScannerListener(OnRxBarCodeScannerListener onRxBarCodeScannerListener) {
+        mOnRxBarCodeScannerListener = onRxBarCodeScannerListener;
 
         Flowable<Pair<Result, ReaderException>> resultFlowable = getResultFlowable();
         if (resultFlowable == null) return;
 
-        mOnCodeScannerListener.onResultFlowableReady(resultFlowable);
+        mOnRxBarCodeScannerListener.onResultFlowableReady(resultFlowable);
     }
 
     public void startAutoFocus(int x, int y) {
         mCameraView.startAutoFocus(x, y);
     }
 
+    public boolean getTorch() {
+        return mCameraView != null && mCameraView.getFlash() == Flash.TORCH;
+    }
+
     public void setTorch(boolean torch) {
         if (mCameraView == null) return;
         mCameraView.setFlash(torch ? Flash.TORCH : Flash.OFF);
-        mOnCodeScannerListener.onOpenTorch(getTorch());
+        mOnRxBarCodeScannerListener.onOpenTorch(getTorch());
     }
 
-    public boolean getTorch() {
-        return mCameraView != null && mCameraView.getFlash() == Flash.TORCH;
+    public int getPostFocusDelay() {
+        return mPostFocusDelay;
     }
 
     public void setPostFocusDelay(int postFocusDelay) {
         mPostFocusDelay = postFocusDelay;
     }
 
-    public int getPostFocusDelay() {
-        return mPostFocusDelay;
+    public boolean isContinuousFocus() {
+        return mIsContinuousFocus;
     }
 
     public void setContinuousFocus(boolean continuousFocus) {
@@ -240,21 +266,12 @@ public class RxBarCodeScannerFragment extends Fragment {
         }
     }
 
-    public boolean isContinuousFocus() {
-        return mIsContinuousFocus;
-    }
-
-    public Size previewSize() {
-        if (mCameraView == null) return null;
-        return mCameraView.getPreviewSize();
-    }
-
     public void setFocusLocation(Integer focusX, Integer focusY) {
         mFocusX = focusX;
         mFocusY = focusY;
     }
 
-    public interface OnCodeScannerListener {
+    public interface OnRxBarCodeScannerListener {
 
         void onResultFlowableReady(Flowable<Pair<Result, ReaderException>> flowable);
 
@@ -263,5 +280,7 @@ public class RxBarCodeScannerFragment extends Fragment {
         void needOpenTorch(boolean needOpenTorch);
 
         void onCameraOpened();
+
+        Rect onGetScanBoxAreaRect(int previewWidth, int previewHeight);
     }
 }

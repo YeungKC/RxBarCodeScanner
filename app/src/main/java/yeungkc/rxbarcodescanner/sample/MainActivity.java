@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
         );
 
         if (rxBarCodeScannerFragment != null) {
-            rxBarCodeScannerFragment.setOnCodeScannerListener(new RxBarCodeScannerFragment.OnCodeScannerListener() {
+            rxBarCodeScannerFragment.setOnRxBarCodeScannerListener(new RxBarCodeScannerFragment.OnRxBarCodeScannerListener() {
 
                 @Override
                 public void onResultFlowableReady(Flowable<Pair<Result, ReaderException>> flowable) {
@@ -91,6 +91,11 @@ public class MainActivity extends AppCompatActivity {
                 public void onCameraOpened() {
                     Rect framingRect = scanBoxView.getFramingRect();
                     rxBarCodeScannerFragment.setFocusLocation(framingRect.centerX(), framingRect.centerY());
+                }
+
+                @Override
+                public Rect onGetScanBoxAreaRect(int previewWidth, int previewHeight) {
+                    return scanBoxView.getScanBoxAreaRect(previewWidth, previewHeight);
                 }
             });
             rxBarCodeScannerFragment.setContinuousFocus(true);

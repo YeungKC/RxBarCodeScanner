@@ -1,5 +1,6 @@
 package yeungkc.rxbarcodescanner;
 
+import android.graphics.Rect;
 import android.util.Log;
 import android.util.Pair;
 
@@ -42,7 +43,7 @@ public class Decode {
 
     private boolean checkNeedRotate(Collection<BarcodeFormat> decodeFormats) {
         for (BarcodeFormat decodeFormat : decodeFormats) {
-        for (BarcodeFormat oneDFormat : DecodeFormatManager.ONE_D_FORMATS) {
+            for (BarcodeFormat oneDFormat : DecodeFormatManager.ONE_D_FORMATS) {
                 if (oneDFormat != decodeFormat) continue;
 
                 return true;
@@ -51,29 +52,18 @@ public class Decode {
         return false;
     }
 
-    public Pair<Result, ReaderException> decode(byte[] data, int width, int height, int rotation) {
+    public Pair<Result, ReaderException> decode(byte[] data, int width, int height, int format, int rotation, Rect cropRect) {
         long start = System.currentTimeMillis();
 
-        if (mNeedRotate && (rotation == 90 || rotation == 270)) {
-            byte[] rotatedData = new byte[data.length];
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++)
-                    rotatedData[x * height + height - y - 1] = data[x + y * width];
-            }
-
-            data = rotatedData;
-            int tmp = width;
-            width = height;
-            height = tmp;
+        if (cropRect == null && (!mNeedRotate || (rotation % 180 == 0))) {
+            rotation = 0;
         }
 
-        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
-                data,
-                width, height,
-                0, 0,
-                width, height,
-                false
-        );
+        SourceData sourceData = new SourceData(data, width, height, format, rotation);
+        sourceData.setCropRect(cropRect);
+        PlanarYUVLuminanceSource source = sourceData.createSource();
+
+        long rotate = System.currentTimeMillis() - start;
 
         Binarizer binarizer;
         if (sIsUseHybridBinarizer) {
@@ -92,7 +82,7 @@ public class Decode {
             return Pair.create(null, e);
         } finally {
             mReader.reset();
-            LOG.i(getClass().getSimpleName(), (System.currentTimeMillis() - start) + "");
+            LOG.i(getClass().getSimpleName(), "rotate : " + rotate + ", decode : " + (System.currentTimeMillis() - start));
         }
     }
 }
